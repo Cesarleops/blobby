@@ -47,11 +47,28 @@ async function main() {
     throw new Error("no choices in response");
   }
 
-  // You can use print statements as follows for debugging, they'll be visible when running tests.
-  console.error("Logs from your program will appear here!");
+  const data = response.choices[0];
+  const toolCalls = data.message.tool_calls;
+  if (!toolCalls || toolCalls.length === 0) {
+    console.log(data.message);
+    return;
+  }
+  const tool = toolCalls[0];
+  if (tool.type !== "function") {
+    console.log(data.message);
+    return;
+  }
 
-  // TODO: Uncomment the lines below to pass the first stage
-  console.log(response.choices[0].message.content);
+  const functionCall = tool.function.name;
+  const args = JSON.parse(tool.function.arguments);
+  switch (functionCall) {
+    case "Read":
+      // console.log("reading", functionCall);
+      const file = Bun.file(args.file_path);
+      const fileContent = await file.text();
+      console.log(fileContent);
+      break;
+  }
 }
 
 main();
