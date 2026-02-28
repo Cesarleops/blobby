@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources.js";
 import { tools } from "./features/tools";
+import { BLACK_LISTED_COMMANDS } from "./features/tools/bash";
 
 async function main() {
   const [, , flag, prompt] = process.argv;
@@ -73,8 +74,9 @@ async function main() {
           });
           break;
         case "Bash":
-          const command = parameters.command as string;
-          const commandResult = await Bun.$`${command.split(" ")}`;
+          const command = parameters.command.split(" ");
+
+          const commandResult = await Bun.$`${command}`;
           messages.push({
             tool_call_id: tc.id,
             content: commandResult.text(),
@@ -90,4 +92,12 @@ function getToolParameters(params: string) {
   return JSON.parse(params);
 }
 
+function validCommand(commands: string[]) {
+  for (const cmd of commands) {
+    if (BLACK_LISTED_COMMANDS[cmd]) {
+      return false;
+    }
+  }
+  return true;
+}
 main();
