@@ -50,7 +50,7 @@ async function main() {
   const data = response.choices[0];
   const toolCalls = data.message.tool_calls;
   if (!toolCalls || toolCalls.length === 0) {
-    console.log(data.message);
+    console.log(data.message.content);
     return;
   }
   const tool = toolCalls[0];
