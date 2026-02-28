@@ -55,7 +55,7 @@ async function main() {
   }
   const tool = toolCalls[0];
   if (tool.type !== "function") {
-    console.log(data.message);
+    console.log(data.message.content);
     return;
   }
 
