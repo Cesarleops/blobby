@@ -46,6 +46,27 @@ async function main() {
             },
           },
         },
+        {
+          type: "function",
+          function: {
+            name: "Write",
+            description: "Write content to a file",
+            parameters: {
+              type: "object",
+              required: ["file_path", "content"],
+              properties: {
+                file_path: {
+                  type: "string",
+                  description: "The path of the file to write to",
+                },
+                content: {
+                  type: "string",
+                  description: "The content to write to the file",
+                },
+              },
+            },
+          },
+        },
       ],
     });
 
@@ -68,22 +89,35 @@ async function main() {
     }
 
     for (const tc of toolCalls) {
-      if (tc.type === "function") {
-        const parameters = JSON.parse(tc.function.arguments);
-        switch (tc.function.name) {
-          case "Read":
-            const file = Bun.file(parameters.file_path);
-            const content = await file.text();
-            messages.push({
-              tool_call_id: tc.id,
-              content,
-              role: "tool",
-            });
-            break;
-        }
+      if (tc.type !== "function") continue;
+
+      const parameters = getToolParameters(tc.function.arguments);
+      switch (tc.function.name) {
+        case "Read":
+          const file = Bun.file(parameters.file_path);
+          const content = await file.text();
+          messages.push({
+            tool_call_id: tc.id,
+            content,
+            role: "tool",
+          });
+          break;
+        case "Write":
+          const filetoWrite = Bun.file(parameters.file_path);
+          const result = await filetoWrite.write(parameters.content);
+          messages.push({
+            tool_call_id: tc.id,
+            content: result.toString(),
+            role: "tool",
+          });
+          break;
       }
     }
   }
+}
+
+function getToolParameters(params: string) {
+  return JSON.parse(params);
 }
 
 main();
