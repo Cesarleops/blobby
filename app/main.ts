@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import type { ChatCompletionMessageParam } from "openai/resources.js";
 
 async function main() {
   const [, , flag, prompt] = process.argv;
@@ -18,56 +19,70 @@ async function main() {
     baseURL: baseURL,
   });
 
-  const response = await client.chat.completions.create({
-    model: "anthropic/claude-haiku-4.5",
-    messages: [{ role: "user", content: prompt }],
-    tools: [
-      {
-        type: "function", // tools are always functions
-        function: {
-          // this is like the function definition, like a programming language.
-          name: "Read",
-          description: "Read and return the contents of a file", // describes the function use case
-          parameters: {
-            type: "object",
-            properties: {
-              file_path: {
-                type: "string",
-                description: "The path to the file to read",
+  const messages: ChatCompletionMessageParam[] = [
+    { role: "user", content: prompt },
+  ];
+
+  while (true) {
+    const response = await client.chat.completions.create({
+      model: "anthropic/claude-haiku-4.5",
+      messages: messages,
+      tools: [
+        {
+          type: "function", // tools are always functions
+          function: {
+            // this is like the function definition, like a programming language.
+            name: "Read",
+            description: "Read and return the contents of a file", // describes the function use case
+            parameters: {
+              type: "object",
+              properties: {
+                file_path: {
+                  type: "string",
+                  description: "The path to the file to read",
+                },
               },
+              required: ["file_path"],
             },
-            required: ["file_path"],
           },
         },
-      },
-    ],
-  });
+      ],
+    });
 
-  if (!response.choices || response.choices.length === 0) {
-    throw new Error("no choices in response");
-  }
+    if (!response.choices || response.choices.length === 0) {
+      throw new Error("no choices in response");
+    }
 
-  const data = response.choices[0];
-  const toolCalls = data.message.tool_calls;
-  if (!toolCalls || toolCalls.length === 0) {
-    console.log(data.message.content);
-    return;
-  }
-  const tool = toolCalls[0];
-  if (tool.type !== "function") {
-    console.log(data.message.content);
-    return;
-  }
+    const modelResponse = response.choices[0];
+    const toolCalls = modelResponse.message.tool_calls;
 
-  const functionCall = tool.function.name;
-  const args = JSON.parse(tool.function.arguments);
-  switch (functionCall) {
-    case "Read":
-      // console.log("reading", functionCall);
-      const file = Bun.file(args.file_path);
-      const fileContent = await file.text();
-      console.log(fileContent);
-      break;
+    messages.push(modelResponse.message);
+
+    if (
+      modelResponse.finish_reason === "stop" ||
+      !toolCalls ||
+      toolCalls.length === 0
+    ) {
+      console.log(modelResponse.message.content);
+      return;
+    }
+
+    for (const tc of toolCalls) {
+      if (tc.type === "function") {
+        const parameters = JSON.parse(tc.function.arguments);
+        switch (tc.function.name) {
+          case "Read":
+            const file = Bun.file(parameters.file_path);
+            const content = await file.text();
+            messages.push({
+              tool_call_id: tc.id,
+              content,
+              role: "tool",
+            });
+            break;
+        }
+      }
+    }
   }
 }
 
