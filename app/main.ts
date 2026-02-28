@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources.js";
+import { tools } from "./features/tools";
 
 async function main() {
   const [, , flag, prompt] = process.argv;
@@ -27,47 +28,7 @@ async function main() {
     const response = await client.chat.completions.create({
       model: "anthropic/claude-haiku-4.5",
       messages: messages,
-      tools: [
-        {
-          type: "function", // tools are always functions
-          function: {
-            // this is like the function definition, like a programming language.
-            name: "Read",
-            description: "Read and return the contents of a file", // describes the function use case
-            parameters: {
-              type: "object",
-              properties: {
-                file_path: {
-                  type: "string",
-                  description: "The path to the file to read",
-                },
-              },
-              required: ["file_path"],
-            },
-          },
-        },
-        {
-          type: "function",
-          function: {
-            name: "Write",
-            description: "Write content to a file",
-            parameters: {
-              type: "object",
-              required: ["file_path", "content"],
-              properties: {
-                file_path: {
-                  type: "string",
-                  description: "The path of the file to write to",
-                },
-                content: {
-                  type: "string",
-                  description: "The content to write to the file",
-                },
-              },
-            },
-          },
-        },
-      ],
+      tools: tools,
     });
 
     if (!response.choices || response.choices.length === 0) {
@@ -108,6 +69,15 @@ async function main() {
           messages.push({
             tool_call_id: tc.id,
             content: result.toString(),
+            role: "tool",
+          });
+          break;
+        case "Bash":
+          const command = parameters.command as string;
+          const commandResult = await Bun.$`${command.split(" ")}`;
+          messages.push({
+            tool_call_id: tc.id,
+            content: commandResult.text(),
             role: "tool",
           });
           break;
