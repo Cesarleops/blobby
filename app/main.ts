@@ -21,6 +21,26 @@ async function main() {
   const response = await client.chat.completions.create({
     model: "anthropic/claude-haiku-4.5",
     messages: [{ role: "user", content: prompt }],
+    tools: [
+      {
+        type: "function", // tools are always functions
+        function: {
+          // this is like the function definition, like a programming language.
+          name: "Read",
+          description: "Read and return the contents of a file", // describes the function use case
+          parameters: {
+            type: "object",
+            properties: {
+              file_path: {
+                type: "string",
+                description: "The path to the file to read",
+              },
+            },
+            required: ["file_path"],
+          },
+        },
+      },
+    ],
   });
 
   if (!response.choices || response.choices.length === 0) {
